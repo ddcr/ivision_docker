@@ -1,0 +1,77 @@
+version: "3.9"
+
+x-default-service: &common
+  working_dir: /ivision
+  volumes:
+    - ~/.ccache:/home/devel/.ccache
+  network_mode: bridge
+  cap_add:
+      - SYS_PTRACE
+
+services:
+  focal-qt6:
+    << : *common
+    hostname: focal-qt6
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4
+    build:
+      dockerfile: docker/focal/Dockerfile
+      context: .
+      args:
+        QT_VERSION: 6.2.4
+        QTCREATOR_VERSION: 5.0.3
+        BAT_VERSION: 0.22.1
+        RIPGREP_VERSION: 13.0.0
+        GLOW_VERSION: 1.4.0
+        OPENCV_VERSION: 4.5.3
+        BOOST_VERSION: "1_77_0"
+
+  focal-qt6-devcomm:
+    << : *common
+    hostname: focal-qt6
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-devcomm
+    build:
+      dockerfile: docker/focal/Dockerfile
+      context: .
+      target: base-devcomm
+      args:
+        QT_VERSION: 6.2.4
+        QTCREATOR_VERSION: 5.0.3
+        BAT_VERSION: 0.22.1
+        RIPGREP_VERSION: 13.0.0
+        GLOW_VERSION: 1.4.0
+        OPENCV_VERSION: 4.5.3
+        BOOST_VERSION: "1_77_0"
+
+  focal-qt6-cuda:
+    << : *common
+    hostname: focal-qt6-cuda
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-cuda-10.1
+    build:
+      dockerfile: docker/focal/Dockerfile.cuda10
+      context: .
+      target: base-devcomm
+      args:
+        QT_VERSION: 6.2.4
+        QTCREATOR_VERSION: 5.0.3
+        BAT_VERSION: 0.22.1
+        RIPGREP_VERSION: 13.0.0
+        GLOW_VERSION: 1.4.0
+        OPENCV_VERSION: 4.5.3
+        BOOST_VERSION: "1_77_0"
+
+  focal-qt6-cuda11:
+    << : *common
+    hostname: focal-qt6-cuda
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-cuda-11.3
+    build:
+      dockerfile: docker/focal/Dockerfile.cuda11
+      context: .
+      target: base-devcomm
+      args:
+        QT_VERSION: 6.2.4
+        QTCREATOR_VERSION: 5.0.3
+        BAT_VERSION: 0.22.1
+        RIPGREP_VERSION: 13.0.0
+        GLOW_VERSION: 1.4.0
+        OPENCV_VERSION: 4.5.3
+        BOOST_VERSION: "1_77_0"
