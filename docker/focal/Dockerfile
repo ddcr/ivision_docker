@@ -1,5 +1,5 @@
 #
-# Install Qt and Qbs for Linux
+# Install Qt for Linux
 #
 FROM ubuntu:focal as base
 LABEL Description="Ubuntu development environment for Ivision"
@@ -148,7 +148,8 @@ RUN dpkg_apt() { [ -f $1 ] && { dpkg -i $1 || apt-get -y install -f; } || return
     dpkg_apt /tmp/bat_${BAT_VERSION}_amd64.deb; \
     dpkg_apt /tmp/ripgrep_${RIPGREP_VERSION}_amd64.deb; \
     dpkg_apt /tmp/glow_${GLOW_VERSION}_linux_amd64.deb; \
-    curl https://getmic.ro && mv micro /usr/local/bin
+    su - root -c "wget -O- https://getmic.ro | GETMICRO_REGISTER=y sh"; \
+    su - root -c "mv micro /usr/local/bin/"
 
 ENV LLVM_INSTALL_DIR=/usr/lib/llvm-12
 

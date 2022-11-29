@@ -21,7 +21,7 @@ services:
         QTCREATOR_VERSION: 5.0.3
         BAT_VERSION: 0.22.1
         RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.0
+        GLOW_VERSION: 1.4.1
         OPENCV_VERSION: 4.5.3
         BOOST_VERSION: "1_77_0"
 
@@ -38,7 +38,7 @@ services:
         QTCREATOR_VERSION: 5.0.3
         BAT_VERSION: 0.22.1
         RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.0
+        GLOW_VERSION: 1.4.1
         OPENCV_VERSION: 4.5.3
         BOOST_VERSION: "1_77_0"
 
@@ -55,7 +55,7 @@ services:
         QTCREATOR_VERSION: 5.0.3
         BAT_VERSION: 0.22.1
         RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.0
+        GLOW_VERSION: 1.4.1
         OPENCV_VERSION: 4.5.3
         BOOST_VERSION: "1_77_0"
 
@@ -72,6 +72,6 @@ services:
         QTCREATOR_VERSION: 5.0.3
         BAT_VERSION: 0.22.1
         RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.0
+        GLOW_VERSION: 1.4.1
         OPENCV_VERSION: 4.5.3
         BOOST_VERSION: "1_77_0"
