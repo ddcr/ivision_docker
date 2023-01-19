@@ -1,0 +1,379 @@
+#
+# Install Qt for Linux
+#
+FROM ubuntu:bionic as base
+LABEL Description="Ubuntu development environment for Ivision"
+
+FROM base as base-amd64
+
+ARG QT_VERSION
+ARG QTCREATOR_VERSION
+ARG BAT_VERSION
+ARG RIPGREP_VERSION
+ARG GLOW_VERSION
+
+# Allow colored output on command line.
+ENV TERM=xterm-color
+
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
+
+#
+# Make it possible to change UID/GID in the entrypoint script. The docker
+# container usually runs as root user on Linux hosts. When the Docker container
+# mounts a folder on the host and creates files there, those files would be
+# owned by root instead of the current user. Thus we create a user here who's
+# UID will be changed in the entrypoint script to match the UID of the current
+# host user.
+#
+ARG USER_UID=1000
+ARG USER_NAME=ivision
+
+RUN apt-get update -qq && \
+    apt-get install -qq -y \
+        ca-certificates \
+        software-properties-common \
+        gosu \
+        sudo && \
+    groupadd -g ${USER_UID} ${USER_NAME} && \
+    useradd -s /bin/bash -u ${USER_UID} -g ${USER_NAME} -o -c "" -m ${USER_NAME} && \
+    usermod -a -G sudo ${USER_NAME} && \
+    echo "%ivision         ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+COPY docker/bionic/entrypoint.sh /sbin/entrypoint.sh
+COPY docker/third_party/bat_${BAT_VERSION}_amd64.deb \
+     docker/third_party/ripgrep_${RIPGREP_VERSION}_amd64.deb \
+     docker/third_party/glow_${GLOW_VERSION}_linux_amd64.deb \
+    /tmp/
+
+ENTRYPOINT ["/sbin/entrypoint.sh"]
+
+
+# Build dependencies
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND="noninteractive" apt-get install -qq -y --no-install-recommends \
+        bison \
+        build-essential \
+        ca-certificates \
+        capnproto \
+        ccache \
+        clang-10 \
+        clang-tidy-10 \
+        cmake \
+        curl \
+        flex \
+        git \
+        \
+        gcc-8 \
+        g++-8 \
+        \
+        wget \
+        help2man \
+        icoutils \
+        libcapnp-dev \
+        libdbus-1-3 \
+        libfreetype6 \
+        libfontconfig1 \
+        libgl1-mesa-dev \
+        libgl1-mesa-glx \
+        libprotobuf-dev \
+        libgrpc++-dev \
+        libxkbcommon-x11-0 \
+        \
+        libeigen3-dev \
+        libavcodec-dev \
+        libavformat-dev \
+        libavutil-dev \
+        libswscale-dev \
+        libavresample-dev \
+        libcurl4-openssl-dev \
+        libtbb2 \
+        libtbb-dev \
+        libjpeg-dev \
+        libpng-dev \
+        libtiff-dev \
+        libdc1394-22-dev \
+        ninja-build \
+        nsis \
+        pkg-config \
+        protobuf-compiler \
+        protobuf-compiler-grpc \
+        psmisc \
+        python3-pip \
+        python3-setuptools \
+        \
+        python3-pybind11 \
+        libexpat1 \
+        $(apt-cache search --names-only 'libffi[0-9]+$' 2>/dev/null | awk '{print $1}') \
+        $(apt-cache search --names-only 'libmpdec[0-9]+$' 2>/dev/null | awk '{print $1}') \
+        libncursesw5 \
+        $(apt-cache show libncursesw6 >/dev/null 2>&1 && echo libncursesw6 || true) \
+        $(apt-cache search --names-only 'libreadline[0-9]+$' 2>/dev/null | awk '{print $1}') \
+        libsqlite3-0 \
+        libssl1.1 \
+        lzma \
+        zlib1g \
+        \
+        lcov \
+        libbz2-dev \
+        libffi-dev \
+        libgdbm-compat-dev \
+        libgdbm-dev \
+        libmpdec-dev \
+        liblzma-dev \
+        libncursesw5-dev \
+        $(apt-cache show libncurses-dev >/dev/null 2>&1 && echo libncurses-dev || true) \
+        libreadline6-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        lzma \
+        lzma-dev \
+        pkg-config \
+        tk-dev \
+        uuid-dev \
+        zlib1g-dev \
+        \
+        p7zip-full \
+        subversion \
+        unzip \
+        zip \
+        vim \
+        less \
+        qt5-default \
+        qtbase5-private-dev \
+        qtwebengine5-dev \
+        qttools5-dev \
+        libqt5sql5-mysql \
+        libqt5charts5-dev \
+        libqt5svg5-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-10 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-10 100 && \
+    update-alternatives --install /usr/bin/clang-check clang-check /usr/bin/clang-check-10 100 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 100 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 8 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 8 && \
+    python3 -m pip install beautifulsoup4 lxml protobuf==3.19.1 pyyaml
+
+# RUN add-apt-repository --yes ppa:rock-core/qt4
+# For bionic need to add KitWare repository to get the most recent version of cmake
+# I am going to need that for the compilation of QXlsx
+RUN wget -O /tmp/kitware-archive-latest.asc https://apt.kitware.com/keys/kitware-archive-latest.asc \
+    && apt-key add /tmp/kitware-archive-latest.asc \
+    && add-apt-repository 'deb https://apt.kitware.com/ubuntu/ bionic main' \
+    && rm -f /tmp/kitware-archive-latest.asc \
+    && apt-get update -qq && \
+       DEBIAN_FRONTEND="noninteractive" apt-get install --only-upgrade -qq -y --no-install-recommends \
+       cmake
+
+RUN add-apt-repository --yes ppa:gezakovacs/ppa
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND="noninteractive" apt-get install -qq -y --no-install-recommends \
+        qt4-default \
+        libqt4-dev \
+        qt4-dev-tools
+
+#
+# Install favorite tools: bat, ripgrep, glow, micro
+#
+RUN dpkg_apt() { [ -f $1 ] && { dpkg -i $1 || apt-get -y install -f; } || return 1; }; \
+    dpkg_apt /tmp/bat_${BAT_VERSION}_amd64.deb; \
+    dpkg_apt /tmp/ripgrep_${RIPGREP_VERSION}_amd64.deb; \
+    dpkg_apt /tmp/glow_${GLOW_VERSION}_linux_amd64.deb; \
+    rm -f /tmp/bat_${BAT_VERSION}_amd64.deb; \
+    rm -f /tmp/ripgrep_${RIPGREP_VERSION}_amd64.deb; \
+    rm -f /tmp/glow_${GLOW_VERSION}_linux_amd64.deb; \
+    su - root -c "wget -O- https://getmic.ro | GETMICRO_REGISTER=y sh"; \
+    su - root -c "mv micro /usr/local/bin/"
+
+ENV LLVM_INSTALL_DIR=/usr/lib/llvm-12
+
+#
+# Install Qt for Linux from qt.io
+#
+COPY docker/third_party/install-qt.sh install-qt.sh
+
+RUN ./install-qt.sh --version ${QT_VERSION} qtbase qtdeclarative qtscript qttools qtx11extras qtscxml qt5compat icu && \
+    echo "export PATH=/opt/Qt/${QT_VERSION}/gcc_64/bin:\${PATH}" > /etc/profile.d/qt.sh \
+    && rm -f install-qt.sh
+ENV PATH=/opt/Qt/${QT_VERSION}/gcc_64/bin:${PATH}
+
+#
+# Install QXlsx library (force use of Qt5)
+#
+ENV QXLSX_SRC_DIR="/tmp/qxlsx"
+RUN git clone --depth 1 "https://github.com/QtExcel/QXlsx.git" ${QXLSX_SRC_DIR} \
+    && sed -i 's/Qt6//' ${QXLSX_SRC_DIR}/QXlsx/CMakeLists.txt \
+    && mkdir -p ${QXLSX_SRC_DIR}/QXlsx/build \
+    && cd ${QXLSX_SRC_DIR}/QXlsx/build \
+    && cmake .. \
+    && make -j \
+    && make install \
+    && rm -rf ${QXLSX_SRC_DIR}
+
+
+# Work-around for QTBUG-79020
+RUN echo "export QT_NO_GLIB=1" >> /etc/profile.d/qt.sh
+
+
+#=============================================================================================================
+
+FROM base-amd64 as base-opencv
+ARG USER_UID
+ARG USER_NAME
+
+#
+# Install OpenCV
+#
+# Clone, compile and install OpenCV
+
+ARG OPENCV_VERSION
+ENV OPENCV_VERSION $OPENCV_VERSION
+
+ENV OPENCV_SRC_DIR="/tmp/opencv"
+ENV OPENCV_CONTRIB_SRC_DIR="/tmp/opencv_contrib"
+
+RUN git clone --depth 1 --branch ${OPENCV_VERSION} "https://github.com/opencv/opencv.git" ${OPENCV_SRC_DIR} \
+    && git clone --depth 1 --branch ${OPENCV_VERSION} "https://github.com/opencv/opencv_contrib.git" ${OPENCV_CONTRIB_SRC_DIR} \
+    && mkdir -p ${OPENCV_SRC_DIR}/build \
+    && cd ${OPENCV_SRC_DIR}/build \
+    && cmake -D CMAKE_BUILD_TYPE=RELEASE \
+             -D CMAKE_INSTALL_PREFIX=/usr/local \
+             -D OPENCV_EXTRA_MODULES_PATH=${OPENCV_CONTRIB_SRC_DIR}/modules \
+             -D WITH_JASPER=OFF \
+             -D WITH_FFMPEG=ON \
+             -D BUILD_DOCS=OFF \
+             -D BUILD_EXAMPLES=OFF \
+             -D BUILD_TESTS=OFF \
+             -D BUILD_PERF_TESTS=OFF \
+             -D BUILD_opencv_apps=OFF \
+             -D OPENCV_GENERATE_PKGCONFIG=ON .. \
+    && make -j2 \
+    && make install \
+    && rm -rf ${OPENCV_SRC_DIR} \
+    && rm -rf ${OPENCV_CONTRIB_SRC_DIR}
+
+#=============================================================================================================
+
+#
+# Compile and Install Boost
+#
+
+FROM base-opencv as base-boost
+ARG USER_UID
+ARG USER_NAME
+
+ARG BOOST_VERSION
+ENV BOOST_VERSION $BOOST_VERSION
+
+ENV BOOST_SRC_DIR="/tmp/boost_${BOOST_VERSION}"
+ENV BOOST_TAR_FILE="/tmp/boost_${BOOST_VERSION}.tar.gz"
+
+USER root
+
+RUN wget -O ${BOOST_TAR_FILE} -c "https://boostorg.jfrog.io/artifactory/main/release/$(echo ${BOOST_VERSION} | tr '_' '\.')/source/boost_${BOOST_VERSION}.tar.gz" \
+    && rm -rf ${BOOST_SRC_DIR} \
+    && mkdir -p ${BOOST_SRC_DIR} \
+    && tar -C /tmp/ -xzf ${BOOST_TAR_FILE}
+
+RUN cd ${BOOST_SRC_DIR} \
+    && ./bootstrap.sh --prefix=/usr/ \
+    && ./b2 --without-python -d0 install -j4 \
+    && cd .. \
+    && ldconfig \
+    && rm -rf ${BOOST_SRC_DIR} \
+    && rm -f ${BOOST_TAR_FILE}
+
+#=============================================================================================================
+
+#
+# Compile and Install ivision libraries
+#
+
+FROM base-boost as base-devcomm
+ARG USER_UID
+ARG USER_NAME
+
+
+ENV DEVCOMM_SRC_DIR="/tmp/devcomm"
+COPY docker/third_party/ivsn_device_communication_platform ${DEVCOMM_SRC_DIR}
+RUN rm -rf ${DEVCOMM_SRC_DIR}/build \
+    && mkdir -p ${DEVCOMM_SRC_DIR}/build \
+    && cd ${DEVCOMM_SRC_DIR}/build \
+    && cmake -DBUILD_TOOLS=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=RELEASE .. \
+    && make -j2 \
+    && make install \
+    && cd ../.. \
+    && rm -rf ${DEVCOMM_SRC_DIR}
+
+
+ENV PPP_SRC_DIR="/tmp/ppp"
+ENV Qt5_DIR=/usr/lib/x86_64-linux-gnu/qt5
+ENV QT_DIR=/usr/lib/x86_64-linux-gnu/qt5
+ENV QT_QMAKE_EXECUTABLE=/usr/lib/x86_64-linux-gnu/qt5/bin/qmake
+
+
+COPY docker/third_party/ivision-base-library ${PPP_SRC_DIR}
+
+# Force PPP gui module to use Qt5 not Qt4 framework
+RUN sed -i -e "s|find_package(Qt4 4.7 QUIET)|#find_package(Qt4 4.7 QUIET)\nSET(QT4_FOUND FALSE)|g" \
+    ${PPP_SRC_DIR}/modules/gui_qt/CMakeLists.txt
+
+RUN rm -rf ${PPP_SRC_DIR}/build \
+    && mkdir -p ${PPP_SRC_DIR}/build \
+    && cd ${PPP_SRC_DIR}/build \
+    && cmake -DBUILD_AUDIO=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=RELEASE .. \
+    && make -j2 \
+    && make install \
+    && cd ../.. \
+    && rm -rf ${PPP_SRC_DIR}
+
+
+#=============================================================================================================
+
+#
+# Install pyenv and set some useful aliases
+#
+
+FROM base-devcomm as base-pyenv
+ARG USER_UID
+ARG USER_NAME
+
+ENV OPT_IVISION=/opt/ivision
+ENV PYENV_ROOT=${OPT_IVISION}/pyenv
+ENV PATH=${PYENV_ROOT}/bin:$PATH
+
+RUN mkdir -p ${OPT_IVISION} \
+    && chown -R ${USER_NAME}:${USER_NAME} ${OPT_IVISION} \
+    && chmod 755 ${OPT_IVISION};
+
+USER ${USER_NAME}
+RUN echo "alias lsc='clear; ls -F'" > ${HOME}/.bash_aliases \
+    && echo "alias rm='rm -i'" >> ${HOME}/.bash_aliases \
+    && echo "alias mv='mv -i'" >> ${HOME}/.bash_aliases \
+    && echo "alias glow='glow -p'" >> ${HOME}/.bash_aliases \
+    && echo "alias bat='bat --pager=\"less -R -+X\"'" >> ${HOME}/.bash_aliases \
+    && echo 'export PYENV_ROOT="$PYENV_ROOT"' >> ${HOME}/.profile \
+    && echo 'export PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"' >> ${HOME}/.profile \
+    && echo 'eval "$(pyenv init -)"' >> ${HOME}/.bashrc \
+    && echo 'eval "$(pyenv virtualenv-init -)"' >> ${HOME}/.bashrc
+
+ARG PYENV_VERSIONS="3.6.15 3.8.12 3.10.1"
+ARG ALLOW_FAILURES=
+RUN set -eux; \
+    curl https://pyenv.run | bash; \
+    git clone https://github.com/momo-lab/xxenv-latest ${PYENV_ROOT}/plugins/xxenv-latest; \
+    pyenv update; \
+    for version in ${PYENV_VERSIONS}; do \
+        env PYTHON_CONFIGURE_OPTS=" \
+            --enable-shared \
+            --enable-loadable-sqlite-extensions \
+            --with-lto \
+            --with-system-expat \
+            --with-system-ffi \
+            --with-system-mpdec \
+            " \
+            pyenv install ${version} || test -n "${ALLOW_FAILURES}"; \
+    done;
+USER root

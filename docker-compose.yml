@@ -1,12 +1,22 @@
 version: "3.9"
 
 x-default-service: &common
-  working_dir: /ivision
+  working_dir: /home/ivision
   volumes:
     - ~/.ccache:/home/devel/.ccache
   network_mode: bridge
   cap_add:
       - SYS_PTRACE
+
+x-app: &default-apps
+  USER_NAME: "ivision"
+  QT_VERSION: 6.2.4
+  QTCREATOR_VERSION: 5.0.3
+  BAT_VERSION: 0.22.1
+  RIPGREP_VERSION: 13.0.0
+  GLOW_VERSION: 1.4.1
+  OPENCV_VERSION: 4.5.3
+  BOOST_VERSION: "1_77_0"
 
 services:
   focal-qt6:
@@ -17,13 +27,18 @@ services:
       dockerfile: docker/focal/Dockerfile
       context: .
       args:
-        QT_VERSION: 6.2.4
-        QTCREATOR_VERSION: 5.0.3
-        BAT_VERSION: 0.22.1
-        RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.1
-        OPENCV_VERSION: 4.5.3
-        BOOST_VERSION: "1_77_0"
+        << : *default-apps
+
+  bionic-qt6:
+    << : *common
+    hostname: bionic-qt6
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:bionic-qt6-6.2.4
+    build:
+      dockerfile: docker/bionic/Dockerfile
+      context: .
+      target: base-pyenv
+      args:
+        << : *default-apps
 
   focal-qt6-devcomm:
     << : *common
@@ -34,13 +49,7 @@ services:
       context: .
       target: base-devcomm
       args:
-        QT_VERSION: 6.2.4
-        QTCREATOR_VERSION: 5.0.3
-        BAT_VERSION: 0.22.1
-        RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.1
-        OPENCV_VERSION: 4.5.3
-        BOOST_VERSION: "1_77_0"
+        << : *default-apps
 
   focal-qt6-cuda:
     << : *common
@@ -51,13 +60,7 @@ services:
       context: .
       target: base-devcomm
       args:
-        QT_VERSION: 6.2.4
-        QTCREATOR_VERSION: 5.0.3
-        BAT_VERSION: 0.22.1
-        RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.1
-        OPENCV_VERSION: 4.5.3
-        BOOST_VERSION: "1_77_0"
+        << : *default-apps
 
   focal-qt6-cuda11:
     << : *common
@@ -68,10 +71,4 @@ services:
       context: .
       target: base-devcomm
       args:
-        QT_VERSION: 6.2.4
-        QTCREATOR_VERSION: 5.0.3
-        BAT_VERSION: 0.22.1
-        RIPGREP_VERSION: 13.0.0
-        GLOW_VERSION: 1.4.1
-        OPENCV_VERSION: 4.5.3
-        BOOST_VERSION: "1_77_0"
+        << : *default-apps
