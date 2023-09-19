@@ -1,10 +1,18 @@
 version: "3.9"
 
 x-default-service: &common
-  working_dir: /home/ivision
+  network_mode: host
   volumes:
     - ~/.ccache:/home/devel/.ccache
-  network_mode: bridge
+    - /tmp/.X11-unix/:/tmp/.X11-unix/
+    - ~/.Xauthority:/home/ivision/.Xauthority
+    - ~/Downloads/cuda-samples:/home/ivision/cuda-samples
+  working_dir: /home/ivision/cuda-samples
+  tty: true
+  stdin_open: true
+  environment:
+    - DISPLAY
+    - NVIDIA_DRIVER_CAPABILITIES=all
   cap_add:
       - SYS_PTRACE
 
@@ -19,56 +27,26 @@ x-app: &default-apps
   BOOST_VERSION: "1_77_0"
 
 services:
-  focal-qt6:
+
+  ivsn-qt6:
     << : *common
-    hostname: focal-qt6
-    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4
+    image: ${DOCKER_USER:-ivision}/ivsn_dev:${DOCKER_TAG:-bionic-qt6-6.2.4-devcomm}
     build:
-      dockerfile: docker/focal/Dockerfile
+      dockerfile: docker/${UBUNTU_DIST:-bionic}/${DOCKERFILE:-Dockerfile}
       context: .
+      target: ${TARGET_STAGE:-base-devcomm}
       args:
         << : *default-apps
 
-  bionic-qt6:
+  dev_cuda:
+    image: ivision/ivsn_dev:focal-qt6-6.2.4-cuda-11.3
+    container_name: dev_cuda
     << : *common
-    hostname: bionic-qt6
-    image: ${DOCKER_USER:-ivision}/ivsn_dev:bionic-qt6-6.2.4
-    build:
-      dockerfile: docker/bionic/Dockerfile
-      context: .
-      target: base-pyenv
-      args:
-        << : *default-apps
-
-  focal-qt6-devcomm:
-    << : *common
-    hostname: focal-qt6
-    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-devcomm
-    build:
-      dockerfile: docker/focal/Dockerfile
-      context: .
-      target: base-devcomm
-      args:
-        << : *default-apps
-
-  focal-qt6-cuda:
-    << : *common
-    hostname: focal-qt6-cuda
-    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-cuda-10.1
-    build:
-      dockerfile: docker/focal/Dockerfile.cuda10
-      context: .
-      target: base-devcomm
-      args:
-        << : *default-apps
-
-  focal-qt6-cuda11:
-    << : *common
-    hostname: focal-qt6-cuda
-    image: ${DOCKER_USER:-ivision}/ivsn_dev:focal-qt6-6.2.4-cuda-11.3
-    build:
-      dockerfile: docker/focal/Dockerfile.cuda11
-      context: .
-      target: base-devcomm
-      args:
-        << : *default-apps
+    command: /bin/bash
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              count: all

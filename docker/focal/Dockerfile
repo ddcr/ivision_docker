@@ -42,10 +42,11 @@ RUN apt-get update -qq && \
     echo "%ivision         ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 COPY docker/focal/entrypoint.sh /sbin/entrypoint.sh
-# COPY docker/focal/bat_${BAT_VERSION}_amd64.deb /tmp/bat_${BAT_VERSION}_amd64.deb
-COPY docker/focal/bat_${BAT_VERSION}_amd64.deb \
-    docker/focal/ripgrep_${RIPGREP_VERSION}_amd64.deb \
-    docker/focal/glow_${GLOW_VERSION}_linux_amd64.deb \
+COPY docker/third_party/bat_${BAT_VERSION}_amd64.deb \
+    docker/third_party/ripgrep_${RIPGREP_VERSION}_amd64.deb \
+    docker/third_party/glow_${GLOW_VERSION}_linux_amd64.deb \
+    docker/third_party/powerline-go \
+    docker/third_party/powerline-go.snippet.bash \
     /tmp/
 
 ENTRYPOINT ["/sbin/entrypoint.sh"]
@@ -72,6 +73,7 @@ RUN apt-get update -qq && \
         wget \
         help2man \
         icoutils \
+        freeglut3-dev \
         libcapnp-dev \
         libdbus-1-3 \
         libfreetype6 \
@@ -82,6 +84,15 @@ RUN apt-get update -qq && \
         libprotobuf-dev \
         libgrpc++-dev \
         libxkbcommon-x11-0 \
+        libxi-dev \
+        libxmu-dev \
+        libfreeimage3 \
+        libfreeimage-dev \
+        \
+        pkg-config \
+        libgtk2.0-dev \
+        libcanberra-gtk-module \
+        libcanberra-gtk3-module \
         \
         libeigen3-dev \
         libavcodec-dev \
@@ -123,6 +134,7 @@ RUN apt-get update -qq && \
         libqt5charts5-dev \
         libqt5svg5-dev \
         libqt5scxml5-dev && \
+    rm -rf /var/lib/apt/lists/* && \
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-12 100 && \
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-12 100 && \
     update-alternatives --install /usr/bin/clang-check clang-check /usr/bin/clang-check-12 100 && \
@@ -148,6 +160,9 @@ RUN dpkg_apt() { [ -f $1 ] && { dpkg -i $1 || apt-get -y install -f; } || return
     dpkg_apt /tmp/bat_${BAT_VERSION}_amd64.deb; \
     dpkg_apt /tmp/ripgrep_${RIPGREP_VERSION}_amd64.deb; \
     dpkg_apt /tmp/glow_${GLOW_VERSION}_linux_amd64.deb; \
+    rm -f /tmp/bat_${BAT_VERSION}_amd64.deb; \
+    rm -f /tmp/ripgrep_${RIPGREP_VERSION}_amd64.deb; \
+    rm -f /tmp/glow_${GLOW_VERSION}_linux_amd64.deb; \
     su - root -c "wget -O- https://getmic.ro | GETMICRO_REGISTER=y sh"; \
     su - root -c "mv micro /usr/local/bin/"
 
@@ -156,7 +171,7 @@ ENV LLVM_INSTALL_DIR=/usr/lib/llvm-12
 #
 # Install Qt for Linux from qt.io
 #
-COPY install-qt.sh install-qt.sh
+COPY docker/third_party/install-qt.sh install-qt.sh
 
 RUN ./install-qt.sh --version ${QT_VERSION} qtbase qtdeclarative qtscript qttools qtx11extras qtscxml qt5compat icu && \
     echo "export PATH=/opt/Qt/${QT_VERSION}/gcc_64/bin:\${PATH}" > /etc/profile.d/qt.sh \
@@ -164,8 +179,24 @@ RUN ./install-qt.sh --version ${QT_VERSION} qtbase qtdeclarative qtscript qttool
 
 ENV PATH=/opt/Qt/${QT_VERSION}/gcc_64/bin:${PATH}
 
+#
+# Install QXlsx library (force use of Qt5)
+#
+ENV QXLSX_SRC_DIR="/tmp/qxlsx"
+RUN git clone --depth 2 "https://github.com/QtExcel/QXlsx.git" ${QXLSX_SRC_DIR} \
+    && mkdir -p ${QXLSX_SRC_DIR}/QXlsx/build \
+    && cd ${QXLSX_SRC_DIR}/QXlsx/build \
+    && cmake .. \
+    && make -j \
+    && make install \
+    && rm -rf ${QXLSX_SRC_DIR}
 
 USER $USER_NAME
+
+RUN mkdir -p ${HOME}/.local/bin \
+    && cp /tmp/powerline-go ${HOME}/.local/bin \
+    && cat /tmp/powerline-go.snippet.bash >> ${HOME}/.bashrc
+
 # Do something here
 RUN echo "alias lsc='clear; ls -F'" > ${HOME}/.bash_aliases \
     && echo "alias rm='rm -i'" >> ${HOME}/.bash_aliases \
@@ -177,12 +208,15 @@ RUN echo "alias lsc='clear; ls -F'" > ${HOME}/.bash_aliases \
 USER root
 
 # Work-around for QTBUG-79020
-RUN echo "export QT_NO_GLIB=1" >> /etc/profile.d/qt.sh && \
-    rm -f /tmp/bat_${BAT_VERSION}_amd64.deb
+RUN echo "export QT_NO_GLIB=1" >> /etc/profile.d/qt.sh \
+    && rm -f /tmp/powerline-go /tmp/powerline-go.snippet.bash
+
 
 #=============================================================================================================
 
 FROM base-amd64 as base-opencv
+ARG USER_UID
+ARG USER_NAME
 
 #
 # Install OpenCV
@@ -222,6 +256,8 @@ RUN git clone --depth 1 --branch ${OPENCV_VERSION} "https://github.com/opencv/op
 #
 
 FROM base-opencv as base-boost
+ARG USER_UID
+ARG USER_NAME
 
 ARG BOOST_VERSION
 ENV BOOST_VERSION $BOOST_VERSION
@@ -251,10 +287,12 @@ RUN cd ${BOOST_SRC_DIR} \
 #
 
 FROM base-boost as base-devcomm
+ARG USER_UID
+ARG USER_NAME
 
 
 ENV DEVCOMM_SRC_DIR="/tmp/devcomm"
-COPY docker/focal/ivsn_device_communication_platform ${DEVCOMM_SRC_DIR}
+COPY docker/third_party/ivsn_device_communication_platform ${DEVCOMM_SRC_DIR}
 RUN rm -rf ${DEVCOMM_SRC_DIR}/build \
     && mkdir -p ${DEVCOMM_SRC_DIR}/build \
     && cd ${DEVCOMM_SRC_DIR}/build \
@@ -271,7 +309,7 @@ ENV QT_DIR=/usr/lib/x86_64-linux-gnu/qt5
 ENV QT_QMAKE_EXECUTABLE=/usr/lib/x86_64-linux-gnu/qt5/bin/qmake
 
 
-COPY docker/focal/ivision-base-library ${PPP_SRC_DIR}
+COPY docker/third_party/ivision-base-library ${PPP_SRC_DIR}
 
 # Force PPP gui module to use Qt5 not Qt4 framework
 RUN sed -i -e "s|find_package(Qt4 4.7 QUIET)|#find_package(Qt4 4.7 QUIET)\nSET(QT4_FOUND FALSE)|g" \

@@ -1,7 +1,7 @@
 #
 # Install Qt for Linux
 #
-FROM ubuntu:bionic as base
+FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04 as base
 LABEL Description="Ubuntu development environment for Ivision"
 
 FROM base as base-amd64
@@ -30,7 +30,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
 ARG USER_UID=1000
 ARG USER_NAME=ivision
 
-RUN apt-get update -qq && \
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub && \
+    apt-get update -qq && \
     apt-get install -qq -y \
         ca-certificates \
         software-properties-common \
@@ -272,6 +273,8 @@ RUN git clone --depth 1 --branch ${OPENCV_VERSION} "https://github.com/opencv/op
              -D OPENCV_EXTRA_MODULES_PATH=${OPENCV_CONTRIB_SRC_DIR}/modules \
              -D WITH_JASPER=OFF \
              -D WITH_FFMPEG=ON \
+             -D WITH_CUDA=ON \
+             -D OPENCV_CMAKE_CUDA_DEBUG=1 \
              -D BUILD_DOCS=OFF \
              -D BUILD_EXAMPLES=OFF \
              -D BUILD_TESTS=OFF \
